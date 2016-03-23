@@ -1,0 +1,165 @@
+<!--
+ Cumulus Omni
+		 by Sos
+
+ As it appeared in
+	 A Maze. Magazine
+		March/April 2016
+
+ Transcribed with dilligence by Graham Pentheny
+-->
+
+<div id="top">
+	<canvas width="800" height="800"></canvas>
+	<div id="txt"></div>
+</div>
+
+<style>
+#top {
+	position: relative;
+	margin: 20 auto;
+	width: 800px;
+}
+#txt {
+	text-shadow: #ccc 0px 0px 32px;
+	opacity: 0;
+	width: 800px;
+	position: absolute;
+	bottom: 0;
+	text-align: center;
+	font-size: 200px;
+	color: white;
+}
+canvas {
+	box-shadow: #888 0px 0px 32px;
+}
+</style>
+
+<script>
+"use strict";
+
+function rnd() { return Math.random(); }
+
+var txt = document.getElementById("txt");
+var canvas = document.getElementsByTagName("canvas")[0];
+var gl = canvas.getContext("webgl");
+
+var vs = gl.createShader(gl.VERTEX_SHADER);
+var fs = gl.createShader(gl.FRAGMENT_SHADER);
+
+gl.shaderSource(vs, "\
+	attribute vec4 vtx, nrm; \
+	uniform float angle, time; \
+	varying vec4 normal; \
+	void main(void) { \
+		vec4 v = vtx; \
+		v.x = vtx.x * cos(angle) - vtx.z * sin(angle); \
+		v.z = vtx.x * sin(angle) + vtx.z * cos(angle); \
+		v -= 2.1 * nrm * (1.0 - time); \
+		normal = vec4(nrm.xyz, time); \
+		gl_Position = vec4(v.xyz, 1.0); \
+		gl_PointSize = vtx.w * time; \
+	}");
+
+gl.shaderSource(fs, "\
+	precision lowp float; \
+	varying vec4 normal; \
+	void main(void) { \
+		float dist = distance(gl_PointCoord, vec2(.5, .5)); \
+		if (dist > .5) discard; \
+		float light = sqrt(.6 + .4 * dot(normalize(normal.xyz), normalize(vec3(-1.0, 1.0, -1.0)))); \
+		gl_FragColor = vec4(light, light, light, normal.a * normal.a); \
+	}");
+
+gl.compileShader(vs);
+gl.compileShader(fs);
+
+var program = gl.createProgram();
+gl.attachShader(program, vs);
+gl.attachShader(program, fs);
+gl.linkProgram(program);
+gl.useProgram(program);
+
+program.vtx = gl.getAttribLocation(program, "vtx");
+gl.enableVertexAttribArray(program.vtx);
+
+program.nrm = gl.getAttribLocation(program, "nrm");
+gl.enableVertexAttribArray(program.nrm);
+
+program.angle = gl.getUniformLocation(program, "angle");
+program.time = gl.getUniformLocation(program, "time");
+
+gl.viewportWidth = canvas.width;
+gl.viewportHeight = canvas.height;
+
+gl.enable(gl.DEPTH_TEST);
+gl.depthFunc(gl.LESS);
+
+gl.enable(gl.BLEND);
+gl.blendEquation(gl.FUNC_ADD);
+gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SOURCE_ALPHA);
+
+gl.viewport(0, 0, gl.viewportWidth, gl.viewportHeight);
+gl.clearColor(0.9 + rnd() * 0.1, 0.9 + rnd() * 0.1, 0.9 + rnd() * 0.1, 1.0);
+
+var num_vertices = 0;
+var vertices = [];
+function build_cloud(sx, sy, sz, nx, ny, nz, branches, size, length, depth, skip) {
+	var c, phi, theta, dx, dy, dz;
+	for (c = 0; c < branches && depth; c++) {
+		phi = rnd() * rnd() * Math.PI - Math.PI * 0.5;
+		theta = rnd() * Math.PI * 2;
+		dx = Math.cos(theta) * Math.cos(phi) * length;
+		dy = -Math.sin(phi) * length;
+		dz = Math.sin(theta) * Math.cos(phi) * length;
+		build_cloud(sx + dx, sy + dy, sz + dz,
+				nx * 0.75 + dx, ny * 0.75 + dy, nz * 0.75 + dz,
+				branches, size * 0.72, length * 0.76, depth - 1, skip - 1);
+	}
+	if (skip > 0) { return; }
+	vertices.push(sx, sy, sz, size);
+	vertices.push(nx, ny, nz, 1.0);
+	num_vertices++;
+}
+
+build_cloud(
+		0, -0.5, 0,
+		0, 0, 0,
+		3, 300.0, 0.3,
+		13, 10);
+
+// Creating and populating vertex buffers
+
+var buffer = gl.createBuffer();
+gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
+gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(vertices), gl.STATIC_DRAW);
+gl.vertexAttribPointer(program.vtx, 4, gl.FLOAT, false, 32, 0);
+gl.vertexAttribPointer(program.nrm, 4, gl.FLOAT, true, 32, 16);
+
+// Naming the cloud
+var syllables = "kakikukekotatitutetosasisuseso" +
+	"naninunenohahifuhehunaninuneno" +
+	"mamimumemoyabiyubeyolalilulelobabibubebo";
+
+for (var c = 0; c < 3; c++) {
+	txt.innerHTML += " " + syllables.substr(Math.floor(rnd() * syllables.length * 0.5) * 2, 2);
+}
+
+// Putting everything on screen
+
+var angle = 0, time = 0, font = 0;
+function run() {
+	gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+	gl.drawArrays(gl.POINTS, 0, num_vertices);
+	angle += 0.001;
+	if (angle > 0.1) { font += 0.003; }
+	time = time + (1.0 - time) * 0.035;
+	txt.style.opacity = font.toString();
+	gl.uniform1f(program.angle, angle);
+	gl.uniform1f(program.time, time);
+	gl.flush();
+	setTimeout(run, 10);
+}
+
+run();
+</script>
