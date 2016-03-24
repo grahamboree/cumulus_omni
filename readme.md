@@ -2,6 +2,10 @@
 # Cumulus Omni
 by Sos
 
+
+![Cumulus Omni](/screenshot.png?raw=true) 
+http://grahamboree.github.io/cumulus_omni/
+
 From _A Maze. Magazine_ March/April 2016
 
 This toy generates a recursive point-based cloud, a three syllable name for it and renders it spinning around slowly using WebGL on a lightly coloured, square canvas.  Refresh to generate a new cloud.
